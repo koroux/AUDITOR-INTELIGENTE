@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.cefa_auditoria.twa",
+        "sha256_cert_fingerprints": ["45:63:DD:D1:5E:95:A2:15:D4:52:A1:8D:70:2D:3A:83:EC:DB:E3:C2:F7:2B:C5:DA:AF:22:71:3E:99:4A:AC:CE"]
+      }
+    }]
