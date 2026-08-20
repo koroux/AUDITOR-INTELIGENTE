@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEFA Nicaragua - Auditoría de Calidad Logística</title>
+    <!-- Tailwind CSS para diseño y maquetación premium -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js para análisis estadísticos en tiempo real -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf.js para exportación directa a PDF en horizontal sin diálogos de impresión -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Configuración fina para impresión de reportes limpios */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-card {
+                border: 1px solid #e2e8f0 !important;
+                box-shadow: none !important;
+                background-color: white !important;
+                border-radius: 8px !important;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            .print-no-break {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            body {
+                background-color: white !important;
+                font-size: 11px;
+                color: #000 !important;
+            }
+            input, select, textarea {
+                border: none !important;
+                background: transparent !important;
+                appearance: none;
+                -webkit-appearance: none;
+                padding: 0 !important;
+            }
+            canvas {
+                max-height: 180px !important;
+            }
+        }
+        /* Animación suave para focos de alerta */
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.98); }
+        }
+        .pulse-alert {
+            animation: pulse-soft 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- CABECERA SUPERIOR: Información Corporativa y Botones de Control de Archivo -->
+    <header class="no-print bg-slate-900 text-white px-6 py-4 shadow-md">
+        <div class="max-w-[98%] mx-auto flex flex-col lg:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white font-black text-xl px-3 py-1.5 rounded-lg shadow-inner">
+                    CEFA
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-tight">Inspección y Gestión de Calidad Logística</h1>
+                    <p class="text-xs text-slate-400">Almacén Principal • Nicaragua</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Botón de Importación Directa de CSV -->
+                <button onclick="triggerCSVImport()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition duration-150 transform active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Importar Inventario (CSV)
+                </button>
+                <input type="file" id="csv-file-input" accept=".csv, .txt" class="hidden" onchange="handleCSVFile(event)">
+
+                <button onclick="loadDefaultValues()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs px-3 py-2.5 rounded-xl transition">
+                    Cargar Datos Demo
+                </button>
+                
+                <button onclick="clearCurrentTable()" class="bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 font-semibold text-xs px-3 py-2.5 rounded-xl border border-rose-800/50 transition">
+                    Limpiar Tabla
+                </button>
+
+                <!-- Botón de Exportación Directa a PDF Horizontal con Maquetación Real e Idéntica -->
+                <button onclick="generatePerfectLandscapePDF()" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition duration-150 transform active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Exportar PDF Horizontal
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- NOTIFICACIONES TOAST (Sistema de Alertas en Pantalla) -->
+    <div class="max-w-[98%] mx-auto px-4 mt-4 no-print">
+        <div id="toast-notification" class="hidden bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl shadow-sm transition-all duration-300">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-emerald-600 text-xl">✓</span>
+                    <p class="text-xs text-emerald-800 font-medium" id="toast-message">Proceso completado correctamente.</p>
+                </div>
+                <button onclick="document.getElementById('toast-notification').classList.add('hidden')" class="text-emerald-500 hover:text-emerald-700 text-xs font-bold">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR EXPORTABLE: Todo lo que se encuentre aquí adentro será procesado exactamente en el PDF horizontal -->
+    <main id="main-pdf-content" class="flex-grow max-w-[99%] w-full mx-auto p-4 md:p-6 space-y-6">
+
+        <!-- ENCABEZADO DE FORMATO: Identificación de la Norma -->
+        <div class="print-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+                <span class="bg-blue-50 text-blue-700 font-extrabold text-[10px] px-2.5 py-1 rounded-full uppercase tracking-widest border border-blue-100">
+                    Formato Oficial: CL-P03-801
+                </span>
+                <h2 class="text-xl md:text-2xl font-black text-slate-900 mt-2">Formato de Verificación de Pasillos</h2>
+                <p class="text-xs text-slate-500 mt-1">Monitoreo técnico de almacenamiento de activos en bandejas de picking.</p>
+            </div>
+
+            <!-- Panel de Nota de Cumplimiento -->
+            <div class="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 w-full md:w-auto justify-between md:justify-start">
+                <div class="text-right">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Puntuación Final</span>
+                    <div class="text-3xl font-black text-slate-800" id="total-score">100.0%</div>
+                </div>
+                <div class="h-10 w-px bg-slate-200"></div>
+                <div>
+                    <span id="score-label" class="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Excelente Estado
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORMULARIO DE METADATOS / INFORMACIÓN GENERAL -->
+        <div class="print-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre del Verificador</label>
+                <input type="text" id="inspector-name" value="J. Montenegro" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Fecha de Auditoría</label>
+                <input type="date" id="audit-date" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Número de Pasillo</label>
+                <input type="text" id="hall-number" value="Pasillo 01" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Módulo / Sección</label>
+                <input type="text" id="section-module" value="AP-01-A/B" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Asignado A (Responsable)</label>
+                <input type="text" id="responsible-name" value="Auxiliar de Zona AP" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700">
+            </div>
+        </div>
+
+        <!-- KPI SUMMARY CARDS -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 print-no-break">
+            <div class="print-card bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Ítems Auditar</span>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span class="text-2xl font-black text-slate-900" id="kpi-total-items">0</span>
+                    <span class="text-xs text-slate-500">productos</span>
+                </div>
+            </div>
+            <div class="print-card bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">No Conformidades (NS)</span>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span class="text-2xl font-black text-rose-600" id="kpi-total-failures">0</span>
+                    <span class="text-xs text-rose-500 font-medium" id="kpi-failure-pct">--</span>
+                </div>
+            </div>
+            <div class="print-card bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between bg-gradient-to-br from-white to-slate-50">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unidades Activas en Almacén (Cant.)</span>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span class="text-2xl font-black text-blue-600" id="kpi-total-qty">0</span>
+                    <span class="text-xs text-slate-400 font-medium">unidades físicas</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS Y ESTADÍSTICAS -->
+        <div class="no-print grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Gráfico Cumplimiento Global (Doughnut) -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Cumplimiento Global del Pasillo</h3>
+                <div class="h-56 relative flex items-center justify-center">
+                    <canvas id="gaugeChart"></canvas>
+                </div>
+            </div>
+            <!-- Frecuencia de Fallos por Variable -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 col-span-2 flex flex-col">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Frecuencia de No Conformidades</h3>
+                <p class="text-xs text-slate-400 mb-4" id="warning-frequent-issue">Foco prioritario: Ninguna anomalía detectada hasta ahora.</p>
+                <div class="h-52 relative">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DINÁMICA DE VERIFICACIÓN (Diseño Descomprimido y Estirado) -->
+        <div class="print-card bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <!-- Cabecera de la tabla y filtros -->
+            <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Activos de Picking / Bandejas</h3>
+                    <p class="text-xs text-slate-400">Total de ítems cargados desde el inventario de CEFA Nicaragua.</p>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-2 no-print">
+                    <span class="text-xs text-slate-400 font-medium">Filtrar:</span>
+                    <button onclick="setFilter('all')" id="filter-all" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 transition">
+                        Todos
+                    </button>
+                    <button onclick="setFilter('correct')" id="filter-correct" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition">
+                        Solo Correctos
+                    </button>
+                    <button onclick="setFilter('failed')" id="filter-failed" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition">
+                        Solo No Conformidades (NS)
+                    </button>
+
+                    <button onclick="openAddAssetModal()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg ml-2 transition">
+                        + Agregar Activo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla principal adaptada y ensanchada lateralmente con anchos explícitos para no deformar -->
+            <div class="overflow-x-auto w-full">
+                <table class="w-full text-left border-collapse table-layout-fixed min-w-full" style="table-layout: fixed;">
+                    <thead>
+                        <tr class="bg-slate-50/70 text-[10px] text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                            <th class="py-4 px-5 font-bold" style="width: 13%;">Ubicación</th>
+                            <th class="py-3.5 px-4 font-bold" style="width: 10%;">Código</th>
+                            <th class="py-3.5 px-4 font-bold" style="width: 27%;">Descripción del Activo (Fármaco)</th>
+                            <th class="py-3.5 px-4 font-bold text-center" style="width: 7%;">Cant</th>
+                            <th class="py-3.5 px-4 font-bold text-right" style="width: 8%;">Precio</th>
+                            <!-- Las 3 variables de evaluación CL-P03-801 Optimizado -->
+                            <th class="py-3.5 px-4 text-center font-bold" style="width: 6%;" title="Área Organizada y Limpia">AOL</th>
+                            <th class="py-3.5 px-4 text-center font-bold" style="width: 6%;" title="Producto Etiquetado Correctamente">PE</th>
+                            <th class="py-3.5 px-4 text-center font-bold" style="width: 6%;" title="Unidades en Buen Estado">UBE</th>
+                            <th class="py-3.5 px-5 font-bold" style="width: 17%;">Comentarios / Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-table-body" class="divide-y divide-slate-100 text-xs">
+                        <!-- Las filas se renderizan dinámicamente aquí -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mensaje cuando la tabla está vacía -->
+            <div id="empty-state" class="p-12 text-center">
+                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-2xl mb-4">📂</div>
+                <h4 class="text-sm font-bold text-slate-700">No hay datos en la tabla</h4>
+                <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">Para comenzar, haz clic en <strong>"Importar Inventario (CSV)"</strong> en la cabecera superior y sube tu archivo del inventario actual de CEFA o presiona <strong>"Cargar Datos Demo"</strong>.</p>
+            </div>
+        </div>
+
+        <!-- GUÍA OPERATIVA DE CRITERIOS (Actualizado a 3 variables de calidad técnica) -->
+        <section class="print-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 print-no-break">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Guía Operativa de Criterios del Formato CL-P03-801</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+                <div class="space-y-1 p-4 bg-slate-50/50 rounded-xl border border-slate-100">
+                    <span class="font-extrabold text-emerald-600 text-sm block">AOL / LP</span>
+                    <p class="text-slate-500 leading-relaxed"><strong>Activo ordenado y limpio:</strong> Almacenamiento libre de polvo, humedad, desorganización interna o daños físicos en la bandeja contenedora.</p>
+                </div>
+                <div class="space-y-1 p-4 bg-slate-50/50 rounded-xl border border-slate-100">
+                    <span class="font-extrabold text-amber-600 text-sm block">PE</span>
+                    <p class="text-slate-500 leading-relaxed"><strong>Producto Etiquetado:</strong> Validación de etiquetado: Confirmar que los precios sean correctos, legibles y que la etiqueta esté correctamente ubicada en la bandeja.</p>
+                </div>
+                <div class="space-y-1 p-4 bg-slate-50/50 rounded-xl border border-slate-100">
+                    <span class="font-extrabold text-blue-600 text-sm block">UBE</span>
+                    <p class="text-slate-500 leading-relaxed"><strong>Unidades en Buen Estado:</strong> Las unidades físicas del medicamento se encuentran íntegras, limpias, sin roturas, abolladuras ni alteraciones en su empaque primario/secundario.</p>
+                </div>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-4 italic">Gestión de Reportes de Calidad | CEFA de Nicaragua 2026</p>
+        </section>
+
+        <!-- VALIDACIÓN DE FIRMAS AUTÓGRAFAS (Firma Única del Inspector de Calidad) -->
+        <section class="print-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 print-no-break">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Validación de Firma Autógrafa</h3>
+            <div class="max-w-md mx-auto">
+                <!-- Firma Inspector -->
+                <div class="flex flex-col items-center p-4 bg-slate-50/40 rounded-2xl border border-slate-100">
+                    <span class="text-xs font-bold text-slate-600 mb-2">Firma del Inspector (Auditor de Calidad)</span>
+                    <div class="border border-slate-200 rounded-xl bg-white relative w-full h-36 overflow-hidden shadow-inner">
+                        <canvas id="sign-inspector" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+                        <span class="absolute bottom-2 left-2 text-[9px] text-slate-300 pointer-events-none uppercase tracking-widest">Lienzo de Firma</span>
+                    </div>
+                    <button onclick="clearSignature('sign-inspector')" class="no-print mt-2 text-[10px] font-bold text-slate-400 hover:text-rose-600 uppercase tracking-wider transition">
+                        Borrar Firma del Auditor
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- VENTANA MODAL: AGREGAR ACTIVO MANUALMENTE -->
+    <div id="add-asset-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 no-print">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
+                <h3 class="text-sm font-bold">Agregar Activo Manualmente</h3>
+                <button onclick="closeAddAssetModal()" class="text-slate-400 hover:text-white font-bold">&times;</button>
+            </div>
+            <form id="add-asset-form" onsubmit="saveNewAsset(event)" class="p-6 space-y-4 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Ubicación</label>
+                    <input type="text" id="form-ubicacion" required placeholder="Ej. AP-01-01-A-01-00" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Código de Producto</label>
+                    <input type="text" id="form-codigo" required placeholder="Ej. FAR101781" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Descripción (Fármaco y Presentación)</label>
+                    <input type="text" id="form-descripcion" required placeholder="Ej. MERCK CONCOR * TABLETA 10 MG X 30" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Cantidad en Bandeja</label>
+                    <input type="number" id="form-cantidad" required min="0" value="10" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Precio (C$)</label>
+                    <input type="number" id="form-precio" min="0" step="0.01" placeholder="Ej. 146.45" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                </div>
+                <div class="pt-4 flex gap-2 justify-end">
+                    <button type="button" onclick="closeAddAssetModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition">Guardar Activo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PIE DE PÁGINA CORPORATIVO -->
+    <footer class="print-card bg-slate-900 text-slate-400 py-6 px-4 border-t border-slate-800 mt-12 text-center text-[10px] print-no-break">
+        <div class="max-w-[98%] mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p>© 2026 CEFA de Nicaragua. Sistema de Monitoreo de Calidad Logística Semicentenario.</p>
+            <p class="text-slate-500">Documento Confidencial • Auditorías de Almacén de Distribución</p>
+        </div>
+    </footer>
+
+    <!-- LÓGICA DE CONTROL LOGÍSTICO -->
+    <script>
+        // Array de variables optimizadas del Formato CL-P03-801
+        const auditVariables = ["AOL", "PE", "UBE"];
+
+        // Inventario de Trabajo Actual
+        let auditInventory = [];
+        let currentFilter = 'all'; // 'all', 'correct', 'failed'
+
+        // Instancias de Gráficos de Chart.js
+        let gaugeChartInstance = null;
+        let barChartInstance = null;
+
+        // Establecer la fecha predeterminada del día de hoy
+        document.getElementById('audit-date').valueAsDate = new Date();
+
+        // Cargar datos por defecto de demostración
+        function loadDefaultValues() {
+            auditInventory = [
+                { ubicacion: "AP-01-01-A-01-00", codigo: "FAR101781", descripcion: "MERCK CONCOR * TABLETA RECUBIERTA BISOPROLOL FUMARATO 10 MG X 30", cantidad: 180, precio: 146.45, AOL: true, PE: true, UBE: true, comentarios: "" },
+                { ubicacion: "AP-01-01-A-02-00", codigo: "FAR101781", descripcion: "MERCK CONCOR * TABLETA RECUBIERTA BISOPROLOL FUMARATO 10 MG X 30", cantidad: 19, precio: 146.45, AOL: false, PE: true, UBE: true, comentarios: "Falta ordenar bandeja" },
+                { ubicacion: "AP-01-01-A-04-00", codigo: "FAR101934", descripcion: "MERCK CONCOR * TABLETA RECUBIERTA BISOPROLOL FUMARATO 2.5 MG X 30", cantidad: 82, precio: 138.90, AOL: true, PE: true, UBE: true, comentarios: "" },
+                { ubicacion: "AP-01-01-A-05-00", codigo: "FAR109180", descripcion: "PROCAPS ALERCET * CÁPSULA BLANDA CETIRIZINA CLORHIDRATO 10 MG X 10", cantidad: 1, precio: 62.30, AOL: true, PE: true, UBE: true, comentarios: "" },
+                { ubicacion: "AP-01-01-B-01-00", codigo: "FAR101612", descripcion: "MERCK CONCOR * TABLETA RECUBIERTA BISOPROLOL FUMARATO 5 MG X 30", cantidad: 65, precio: 121.75, AOL: true, PE: true, UBE: false, comentarios: "Empaque secundario roto" },
+                { ubicacion: "AP-01-01-B-02-00", codigo: "FAR101612", descripcion: "MERCK CONCOR * TABLETA RECUBIERTA BISOPROLOL FUMARATO 5 MG X 30", cantidad: 360, precio: 121.75, AOL: true, PE: true, UBE: true, comentarios: "" },
+                { ubicacion: "AP-01-03-C-02-00", codigo: "FAR101065", descripcion: "BAYER ALKA-AD * TABLETA LOPERAMIDA 2 MG X 12", cantidad: 108, precio: 54.20, AOL: true, PE: true, UBE: true, comentarios: "" },
+                { ubicacion: "AP-01-03-C-04-00", codigo: "FAR108882", descripcion: "GUARDADO AIRESSA * SUSPENSIÓN ORAL SIMETICONA 100 MG X 20", cantidad: 103, precio: 89.60, AOL: true, PE: true, UBE: true, comentarios: "" },
+                { ubicacion: "AP-01-03-C-05-00", codigo: "FAR106478", descripcion: "GUARDADO DEXTRODEL AT SOLUCION DE CARBOXIMETILCISTEINA 150/5 MG X 120", cantidad: 3, precio: 175.00, AOL: true, PE: true, UBE: true, comentarios: "" },
+                { ubicacion: "AP-01-03-C-06-00", codigo: "FAR106478", descripcion: "GUARDADO DEXTRODEL AT SOLUCION DE CARBOXIMETILCISTEINA 150/5 MG X 120", cantidad: 85, precio: 175.00, AOL: true, PE: false, UBE: true, comentarios: "Falta etiqueta de lote" },
+                { ubicacion: "AP-01-03-C-07-00", codigo: "FAR101823", descripcion: "NEWPORT PHARMACEUTICALS NEWFORTON * SOLUCIÓN ORAL ARGININA", cantidad: 21, precio: 98.15, AOL: true, PE: true, UBE: true, comentarios: "" }
+            ];
+
+            showToast("Se cargaron los activos oficiales de demostración correctamente.");
+            renderInventoryTable();
+        }
+
+        // Limpiar completamente los datos de la tabla
+        function clearCurrentTable() {
+            auditInventory = [];
+            renderInventoryTable();
+            showToast("Se ha limpiado el listado de auditoría.");
+        }
+
+        // Lanzador de diálogo para importar CSV
+        function triggerCSVImport() {
+            document.getElementById('csv-file-input').click();
+        }
+
+        // Manejar archivo CSV seleccionado
+        function handleCSVFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseAndLoadCSV(text);
+            };
+            reader.readAsText(file, "UTF-8");
+            event.target.value = ""; // Reset de input
+        }
+
+        // Parsear el CSV respetando el delimitador ";" oficial
+        function parseAndLoadCSV(csvText) {
+            const lines = csvText.split(/\r?\n/);
+            if (lines.length < 2) {
+                alert("El archivo está vacío o no contiene el formato correcto.");
+                return;
+            }
+
+            const parsedData = [];
+            const headers = lines[0].split(';');
+
+            // Índices de columnas clave
+            let idxUbic = -1;
+            let idxProd = -1;
+            let idxDesc = -1;
+            let idxUnAct = -1;
+            let idxPrecio = -1;
+
+            headers.forEach((h, index) => {
+                const cleanHeader = h.trim().toLowerCase();
+                if (cleanHeader.includes("ubicacion") || cleanHeader.includes("ubicación")) idxUbic = index;
+                if (cleanHeader.includes("producto") || cleanHeader.includes("codigo") || cleanHeader.includes("código")) idxProd = index;
+                if (cleanHeader.includes("descripcion") || cleanHeader.includes("descripción")) idxDesc = index;
+                if (cleanHeader.includes("unact") || cleanHeader.includes("cantidad") || cleanHeader.includes("cant")) idxUnAct = index;
+                if (cleanHeader.includes("precio") || cleanHeader.includes("price")) idxPrecio = index;
+            });
+
+            if (idxUbic === -1) idxUbic = 0;
+            if (idxProd === -1) idxProd = 1;
+            if (idxDesc === -1) idxDesc = 2;
+            if (idxUnAct === -1) idxUnAct = 3;
+            // idxPrecio se deja en -1 si no existe la columna: el precio quedará en 0 (se muestra "—")
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const cols = line.split(';');
+                if (cols.length <= Math.max(idxUbic, idxProd, idxDesc, idxUnAct)) continue;
+
+                const ubicacion = cols[idxUbic]?.replace(/"/g, '').trim() || "";
+                const codigo = cols[idxProd]?.replace(/"/g, '').trim() || "";
+                const descripcion = cols[idxDesc]?.replace(/"/g, '').trim() || "";
+                const cantidadVal = parseInt(cols[idxUnAct]?.replace(/"/g, '').trim()) || 0;
+
+                // Precio: admite formato con punto (146.45) o coma decimal (146,45), y limpia símbolos de moneda
+                let precioVal = 0;
+                if (idxPrecio !== -1 && cols[idxPrecio] !== undefined) {
+                    let rawPrecio = cols[idxPrecio].replace(/"/g, '').trim();
+                    rawPrecio = rawPrecio.replace(/[^0-9,.-]/g, ''); // quitar símbolos de moneda/espacios
+                    if (rawPrecio.includes(',') && !rawPrecio.includes('.')) {
+                        rawPrecio = rawPrecio.replace(',', '.');
+                    } else {
+                        rawPrecio = rawPrecio.replace(/,/g, '');
+                    }
+                    precioVal = parseFloat(rawPrecio) || 0;
+                }
+
+                parsedData.push({
+                    ubicacion: ubicacion,
+                    codigo: codigo,
+                    descripcion: descripcion,
+                    cantidad: cantidadVal,
+                    precio: precioVal,
+                    AOL: true,
+                    PE: true,
+                    UBE: true,
+                    comentarios: ""
+                });
+            }
+
+            if (parsedData.length > 0) {
+                auditInventory = parsedData;
+                
+                if (parsedData[0].ubicacion) {
+                    const parts = parsedData[0].ubicacion.split('-');
+                    if (parts.length >= 3) {
+                        document.getElementById('hall-number').value = `Pasillo ${parts[1]}`;
+                        document.getElementById('section-module').value = `${parts[0]}-${parts[2]}`;
+                    }
+                }
+
+                showToast(`Se han cargado con éxito ${parsedData.length} activos del inventario de CEFA.`);
+                renderInventoryTable();
+            } else {
+                alert("No se pudo extraer ningún registro válido del archivo CSV.");
+            }
+        }
+
+        // Renderizado del Listado en Tabla con Filtros Aplicados
+        function renderInventoryTable() {
+            const tbody = document.getElementById('audit-table-body');
+            const emptyState = document.getElementById('empty-state');
+            tbody.innerHTML = "";
+
+            if (auditInventory.length === 0) {
+                emptyState.classList.remove('hidden');
+                updateMetrics();
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            auditInventory.forEach((item, index) => {
+                const hasFailure = auditVariables.some(v => !item[v]);
+
+                if (currentFilter === 'correct' && hasFailure) return;
+                if (currentFilter === 'failed' && !hasFailure) return;
+
+                const tr = document.createElement('tr');
+                tr.className = hasFailure 
+                    ? "bg-rose-50/70 hover:bg-rose-100/60 transition duration-150"
+                    : "hover:bg-slate-50 transition duration-150";
+
+                tr.innerHTML = `
+                    <td class="py-4 px-5 font-mono font-bold text-slate-600 text-xs" style="word-break: break-all; word-wrap: break-word;">${item.ubicacion}</td>
+                    <td class="py-4 px-4 font-mono font-semibold text-slate-500 text-xs">${item.codigo}</td>
+                    <td class="py-4 px-4">
+                        <div class="font-bold text-slate-800 text-xs leading-relaxed whitespace-normal break-words">${item.descripcion}</div>
+                    </td>
+                    <td class="py-4 px-4 text-center font-extrabold text-slate-700 text-xs">${item.cantidad.toLocaleString()}</td>
+                    <td class="py-4 px-4 text-right font-bold text-slate-600 text-xs whitespace-nowrap">${item.precio > 0 ? 'C$ ' + item.precio.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>
+                `;
+
+                auditVariables.forEach(v => {
+                    const isPassed = item[v];
+                    const td = document.createElement('td');
+                    td.className = "py-4 px-4 text-center";
+
+                    td.innerHTML = `
+                        <div class="inline-flex rounded-lg overflow-hidden border border-slate-200 bg-white p-0.5 shadow-sm">
+                            <button type="button" onclick="toggleQualityStatus(${index}, '${v}', true)" class="px-2.5 py-1 text-[9px] font-black rounded-md transition-all ${isPassed ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}">
+                                S
+                            </button>
+                            <button type="button" onclick="toggleQualityStatus(${index}, '${v}', false)" class="px-2.5 py-1 text-[9px] font-black rounded-md transition-all ${!isPassed ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}">
+                                NS
+                            </button>
+                        </div>
+                    `;
+                    tr.appendChild(td);
+                });
+
+                // Caja de Comentarios: Reemplazada por un TEXTAREA elástico que se expande hacia abajo
+                const commentTd = document.createElement('td');
+                commentTd.className = "py-3 px-5";
+                commentTd.innerHTML = `
+                    <textarea oninput="adjustTextareaHeight(this); updateComment(${index}, this.value)" 
+                              rows="1"
+                              placeholder="Sin observaciones..." 
+                              class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 font-medium resize-none overflow-hidden min-h-[34px] transition-all"
+                    >${item.comentarios || ''}</textarea>
+                `;
+                tr.appendChild(commentTd);
+
+                tbody.appendChild(tr);
+            });
+
+            // Disparar ajuste de altura inicial para todos los textareas cargados
+            setTimeout(() => {
+                tbody.querySelectorAll('textarea').forEach(ta => adjustTextareaHeight(ta));
+            }, 10);
+
+            updateMetrics();
+        }
+
+        // Función dinámica para expandir textareas según el contenido escrito
+        function adjustTextareaHeight(el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+
+        // Alternar valor de S a NS
+        function toggleQualityStatus(index, variable, value) {
+            auditInventory[index][variable] = value;
+            renderInventoryTable();
+        }
+
+        // Actualizar comentario del producto
+        function updateComment(index, text) {
+            auditInventory[index].comentarios = text;
+        }
+
+        // Controladores de Filtros de la Tabla
+        function setFilter(filterType) {
+            currentFilter = filterType;
+            
+            document.getElementById('filter-all').className = filterType === 'all' 
+                ? 'text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 transition'
+                : 'text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition';
+
+            document.getElementById('filter-correct').className = filterType === 'correct' 
+                ? 'text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 transition'
+                : 'text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition';
+
+            document.getElementById('filter-failed').className = filterType === 'failed' 
+                ? 'text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 transition'
+                : 'text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition';
+
+            renderInventoryTable();
+        }
+
+        // Cálculos estadísticos y actualización de KPI's
+        function updateMetrics() {
+            const totalItems = auditInventory.length;
+            let totalEvaluations = totalItems * auditVariables.length;
+            let totalSuccess = 0;
+            let totalQty = 0;
+
+            const failureCountByVar = {};
+            auditVariables.forEach(v => failureCountByVar[v] = 0);
+
+            auditInventory.forEach(item => {
+                totalQty += item.cantidad;
+
+                auditVariables.forEach(v => {
+                    if (item[v]) {
+                        totalSuccess++;
+                    } else {
+                        failureCountByVar[v]++;
+                    }
+                });
+            });
+
+            const score = totalEvaluations > 0 ? ((totalSuccess / totalEvaluations) * 100).toFixed(1) : "100.0";
+            const totalFailures = totalEvaluations - totalSuccess;
+
+            document.getElementById('kpi-total-items').innerText = totalItems;
+            document.getElementById('kpi-total-failures').innerText = totalFailures;
+            document.getElementById('kpi-failure-pct').innerText = totalEvaluations > 0 ? `${((totalFailures / totalEvaluations) * 100).toFixed(1)}% de fallas` : "0.0%";
+            document.getElementById('kpi-total-qty').innerText = totalQty.toLocaleString();
+            
+            const scoreElement = document.getElementById('total-score');
+            scoreElement.innerText = `${score}%`;
+
+            const label = document.getElementById('score-label');
+            if (score >= 95.0) {
+                label.className = "inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200";
+                label.innerText = "Excelente Estado";
+            } else if (score >= 85.0) {
+                label.className = "inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200";
+                label.innerText = "Conforme Condicionado";
+            } else {
+                label.className = "inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200 pulse-alert";
+                label.innerText = "No Conforme (Alerta)";
+            }
+
+            let maxFailCount = 0;
+            let maxFailVar = "";
+            auditVariables.forEach(v => {
+                if (failureCountByVar[v] > maxFailCount) {
+                    maxFailCount = failureCountByVar[v];
+                    maxFailVar = v;
+                }
+            });
+
+            const warningMsg = document.getElementById('warning-frequent-issue');
+            if (maxFailCount > 0) {
+                warningMsg.innerHTML = `⚠️ Foco prioritario de intervención: <strong class="text-rose-600 font-extrabold">${maxFailVar}</strong> con <strong class="text-rose-600 font-extrabold">${maxFailCount} incidencias</strong> registradas.`;
+            } else {
+                warningMsg.innerText = "✓ Todo en orden: No se reportan incidencias activas en este pasillo.";
+            }
+
+            renderCharts(totalSuccess, totalFailures, failureCountByVar);
+        }
+
+        // Renderizado del motor de gráficos Chart.js
+        function renderCharts(successCount, failureCount, failureCountByVar) {
+            const gaugeCtx = document.getElementById('gaugeChart').getContext('2d');
+            if (gaugeChartInstance) gaugeChartInstance.destroy();
+
+            gaugeChartInstance = new Chart(gaugeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Cumple (S)', 'No Cumple (NS)'],
+                    datasets: [{
+                        data: [successCount, failureCount],
+                        backgroundColor: ['#10b981', '#f43f5e'],
+                        borderWidth: 4,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 10, font: { size: 10, weight: 'bold' } }
+                        }
+                    },
+                    cutout: '72%'
+                }
+            });
+
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            if (barChartInstance) barChartInstance.destroy();
+
+            const chartLabels = auditVariables;
+            const chartData = auditVariables.map(v => failureCountByVar[v]);
+
+            barChartInstance = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Número de Incidencias (NS)',
+                        data: chartData,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1, font: { size: 9 } },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: { font: { size: 9, weight: 'bold' } },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // VENTANA MODAL: AGREGAR ACTIVO
+        function openAddAssetModal() {
+            document.getElementById('add-asset-modal').classList.remove('hidden');
+        }
+
+        // Cerrar ventana modal
+        function closeAddAssetModal() {
+            document.getElementById('add-asset-modal').classList.add('hidden');
+            document.getElementById('add-asset-form').reset();
+        }
+
+        // Guardar activo manualmente
+        function saveNewAsset(event) {
+            event.preventDefault();
+            const ubicacion = document.getElementById('form-ubicacion').value.trim();
+            const codigo = document.getElementById('form-codigo').value.trim();
+            const descripcion = document.getElementById('form-descripcion').value.trim();
+            const cantidad = parseInt(document.getElementById('form-cantidad').value) || 0;
+            const precio = parseFloat(document.getElementById('form-precio').value) || 0;
+
+            const newAsset = {
+                ubicacion,
+                codigo,
+                descripcion,
+                cantidad,
+                precio,
+                AOL: true,
+                PE: true,
+                UBE: true,
+                comentarios: ""
+            };
+
+            auditInventory.push(newAsset);
+            closeAddAssetModal();
+            renderInventoryTable();
+            showToast("Se agregó un nuevo activo al listado de auditoría.");
+        }
+
+        // Toast de notificación interna
+        function showToast(message) {
+            const toast = document.getElementById('toast-notification');
+            const msg = document.getElementById('toast-message');
+            msg.innerText = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 5000);
+        }
+
+        // FIRMAS DIGITALES AUTÓGRAFAS
+        function initializeSignatures() {
+            const configureCanvas = (canvasId) => {
+                const canvas = document.getElementById(canvasId);
+                const ctx = canvas.getContext('2d');
+                let isDrawing = false;
+
+                const adjustCanvasSize = () => {
+                    const rect = canvas.getBoundingClientRect();
+                    
+                    if (rect.width === 0 || rect.height === 0) {
+                        return;
+                    }
+
+                    if (canvas.width === Math.floor(rect.width) && canvas.height === Math.floor(rect.height)) {
+                        return;
+                    }
+
+                    let tempCanvas = null;
+                    if (canvas.width > 0 && canvas.height > 0) {
+                        tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = canvas.width;
+                        tempCanvas.height = canvas.height;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCtx.drawImage(canvas, 0, 0);
+                    }
+
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                    
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = 2.2;
+                    ctx.lineCap = 'round';
+
+                    if (tempCanvas) {
+                        ctx.drawImage(tempCanvas, 0, 0, rect.width, rect.height);
+                    }
+                };
+
+                adjustCanvasSize();
+                window.addEventListener('resize', adjustCanvasSize);
+
+                const getEventCoords = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    return {
+                        x: clientX - rect.left,
+                        y: clientY - rect.top
+                    };
+                };
+
+                canvas.addEventListener('mousedown', (e) => {
+                    isDrawing = true;
+                    const coords = getEventCoords(e);
+                    ctx.beginPath();
+                    ctx.moveTo(coords.x, coords.y);
+                });
+
+                canvas.addEventListener('mousemove', (e) => {
+                    if (!isDrawing) return;
+                    const coords = getEventCoords(e);
+                    ctx.lineTo(coords.x, coords.y);
+                    ctx.stroke();
+                });
+
+                canvas.addEventListener('mouseup', () => isDrawing = false);
+                canvas.addEventListener('mouseleave', () => isDrawing = false);
+
+                canvas.addEventListener('touchstart', (e) => {
+                    isDrawing = true;
+                    const coords = getEventCoords(e);
+                    ctx.beginPath();
+                    ctx.moveTo(coords.x, coords.y);
+                    e.preventDefault();
+                });
+
+                canvas.addEventListener('touchmove', (e) => {
+                    if (!isDrawing) return;
+                    const coords = getEventCoords(e);
+                    ctx.lineTo(coords.x, coords.y);
+                    ctx.stroke();
+                    e.preventDefault();
+                });
+
+                canvas.addEventListener('touchend', () => isDrawing = false);
+            };
+
+            configureCanvas('sign-inspector');
+        }
+
+        // Limpiar firma
+        function clearSignature(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // EXPORTACIÓN A PDF EN HORIZONTAL FIEL AL DISEÑO WEB Y CON CONVERSIÓN DE ANCHOS EXPLICITOS
+        function generatePerfectLandscapePDF() {
+            showToast("Procesando reporte... Generando PDF horizontal exacto a la app.");
+
+            const element = document.getElementById('main-pdf-content');
+            
+            // 1. Capturar firma como imagen
+            const originalCanvas = document.getElementById('sign-inspector');
+            const signatureDataUrl = originalCanvas.toDataURL();
+
+            // 2. Desactivar temporalmente los estilos fluidos y forzar un ancho estricto para que html2canvas no comprima columnas
+            const originalWidth = element.style.width;
+            const originalMaxWidth = element.style.maxWidth;
+            
+            // Forzamos al DOM a renderizarse en ancho panorámico de escritorio exacto (ampliado para la columna de Precio)
+            element.style.width = '1320px';
+            element.style.maxWidth = '1320px';
+
+            // 3. Crear un clon temporal en memoria del DOM forzado
+            const clone = element.cloneNode(true);
+
+            // 4. Restaurar los estilos del DOM original inmediatamente para que el usuario no note el parpadeo
+            element.style.width = originalWidth;
+            element.style.maxWidth = originalMaxWidth;
+
+            // 5. Convertir todos los inputs y textareas del clon a divs de texto plano (evita scrollbars y campos cortados)
+            const clonedTextareas = clone.querySelectorAll('textarea');
+            clonedTextareas.forEach((ta, idx) => {
+                const originalTa = element.querySelectorAll('tbody textarea')[idx];
+                const parent = ta.parentNode;
+                const textDiv = document.createElement('div');
+                
+                // Conservar exactamente el mismo estilo de contenedor, pero en texto plano autoexpandible
+                textDiv.className = "w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-medium whitespace-pre-wrap break-words min-h-[34px]";
+                textDiv.innerText = originalTa ? originalTa.value : (ta.value || "Sin observaciones...");
+                
+                parent.replaceChild(textDiv, ta);
+            });
+
+            const clonedInputs = clone.querySelectorAll('input, select');
+            clonedInputs.forEach((input, idx) => {
+                const originalInput = element.querySelectorAll('input, select')[idx];
+                const parent = input.parentNode;
+                const textDiv = document.createElement('div');
+                
+                textDiv.className = "w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700";
+                textDiv.innerText = originalInput ? originalInput.value : (input.value || "");
+                
+                parent.replaceChild(textDiv, input);
+            });
+
+            // 6. Convertir los botones interactivos S/NS del clon en hermosos círculos estáticos de alta visibilidad (S/NS)
+            const clonedButtonWrappers = clone.querySelectorAll('.inline-flex.rounded-lg');
+            clonedButtonWrappers.forEach((wrapper, idx) => {
+                // Obtener el estado del botón original correspondiente
+                const originalWrapper = element.querySelectorAll('.inline-flex.rounded-lg')[idx];
+                const activeSButton = originalWrapper ? originalWrapper.querySelector('.bg-emerald-500') : null;
+                const isPassed = !!activeSButton;
+
+                const parent = wrapper.parentNode;
+                const staticBadge = document.createElement('div');
+                staticBadge.style.display = 'inline-block';
+                staticBadge.style.width = '24px';
+                staticBadge.style.height = '24px';
+                staticBadge.style.lineHeight = '24px';
+                staticBadge.style.borderRadius = '50%';
+                staticBadge.style.textAlign = 'center';
+                staticBadge.style.fontWeight = 'bold';
+                staticBadge.style.fontSize = '11px';
+                
+                if (isPassed) {
+                    staticBadge.style.backgroundColor = '#10b981';
+                    staticBadge.style.color = '#ffffff';
+                    staticBadge.innerText = 'S';
+                } else {
+                    staticBadge.style.backgroundColor = '#f43f5e';
+                    staticBadge.style.color = '#ffffff';
+                    staticBadge.innerText = 'NS';
+                }
+
+                parent.replaceChild(staticBadge, wrapper);
+            });
+
+            // 7. Reemplazar el canvas de firma por la imagen real capturada
+            const clonedCanvas = clone.querySelector('#sign-inspector');
+            if (clonedCanvas) {
+                const img = document.createElement('img');
+                img.src = signatureDataUrl;
+                img.className = clonedCanvas.className;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                clonedCanvas.parentNode.replaceChild(img, clonedCanvas);
+                
+                const clearBtn = clone.querySelector('button[onclick*="clearSignature"]');
+                if (clearBtn) clearBtn.remove();
+            }
+
+            // Omitir botones interactivos del clon que no deben aparecer en el PDF final
+            const actionButtons = clone.querySelectorAll('.no-print, button');
+            actionButtons.forEach(btn => btn.remove());
+
+            // 8. Configurar opciones óptimas de html2pdf en formato Landscape (Horizontal)
+            const auditDate = document.getElementById('audit-date').value || '2026';
+            const pasilloStr = document.getElementById('hall-number').value.replace(/\s+/g, '_') || 'Pasillo_01';
+            const filename = `Reporte_Calidad_CEFA_${pasilloStr}_${auditDate}.pdf`;
+
+            const opt = {
+                margin:       [8, 8, 8, 8], // Márgenes estrechos en milímetros
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { 
+                    scale: 2.2,             // Súper definición para evitar pixelado
+                    useCORS: true, 
+                    logging: false,
+                    letterRendering: true,
+                    width: 1320             // Forzar captura en ancho apaisado exacto
+                },
+                jsPDF:        { 
+                    unit: 'mm', 
+                    format: 'a4', 
+                    orientation: 'landscape' // Orientación horizontal por defecto
+                },
+                pagebreak: { mode: ['css', 'legacy'] }
+            };
+
+            // 9. Ejecución y descarga directa utilizando el clon perfecto
+            html2pdf().set(opt).from(clone).save().then(() => {
+                showToast("✓ Reporte PDF descargado con éxito en formato horizontal.");
+            }).catch(err => {
+                console.error("Error al generar PDF: ", err);
+                showToast("Inconveniente en descarga directa. Iniciando vista de impresión básica...");
+                window.print();
+            });
+        }
+
+        // Ejecutar funciones de inicialización al cargar
+        window.onload = function() {
+            loadDefaultValues();
+            initializeSignatures();
+        };
+    </script>
+</body>
+</html>
